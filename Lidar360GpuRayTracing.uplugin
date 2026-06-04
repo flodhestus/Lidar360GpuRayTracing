@@ -3,20 +3,20 @@
 	"Version": 1,
 	"VersionName": "1.0.0",
 	"FriendlyName": "LiDAR 360 GPU Ray Tracing",
-	"Description": "360 LiDAR via DX12/Vulkan ray tracing with CycloneDDS ROS2 PointCloud2.",
+	"Description": "360 LiDAR via DX12/Vulkan ray tracing with shared CycloneDDS for PointCloud2 and Image. Hosts Ros2DdsShared module used by OptiX and Scene Camera.",
 	"Category": "Sensors",
 	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"Installed": false,
 	"EngineVersion": "5.7.0",
 	"SupportedTargetPlatforms": [ "Win64", "Linux" ],
-	"Plugins": [
+	"Modules": [
 		{
 			"Name": "Ros2DdsShared",
-			"Enabled": true
-		}
-	],
-	"Modules": [
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"PlatformAllowList": [ "Win64" ]
+		},
 		{
 			"Name": "Lidar360GpuRayTracing",
 			"Type": "Runtime",
@@ -26,6 +26,7 @@
 	],
 	"AdditionalFilesToPackage": [
 		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracing.usf",
-		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracingHit.usf"
+		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracingHit.usf",
+		"Config/CycloneDDS.xml"
 	]
 }
