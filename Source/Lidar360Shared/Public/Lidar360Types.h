@@ -13,3 +13,15 @@ struct FLidar360SensorFrame
 	TArray<uint8> Data;
 	int32 PointCount = 0;
 };
+
+static constexpr int32 LIDAR360_MAX_IMAGE_WIDTH = 1920;
+static constexpr int32 LIDAR360_MAX_IMAGE_HEIGHT = 1080;
+static constexpr int32 LIDAR360_IMAGE_BYTES = LIDAR360_MAX_IMAGE_WIDTH * LIDAR360_MAX_IMAGE_HEIGHT * 3;
+
+struct FLidar360ImageFrame
+{
+	TArray<uint8> Data;
+	int32 Width = 0;
+	int32 Height = 0;
+	int32 Step = 0;
+};

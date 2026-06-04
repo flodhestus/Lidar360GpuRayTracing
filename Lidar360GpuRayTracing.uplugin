@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0.0",
 	"FriendlyName": "LiDAR 360 GPU Ray Tracing",
-	"Description": "360 LiDAR via DX12/Vulkan ray tracing with CycloneDDS ROS2 PointCloud2.",
+	"Description": "360 LiDAR via DX12/Vulkan ray tracing, compute-shader camera, CycloneDDS ROS2 PointCloud2 and Image.",
 	"Category": "Sensors",
 	"CanContainContent": true,
 	"IsBetaVersion": false,
@@ -27,6 +27,7 @@
 	"AdditionalFilesToPackage": [
 		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracing.usf",
 		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracingHit.usf",
+		"Shaders/Lidar360GpuRayTracing/Private/Lidar360CameraCapture.usf",
 		"Config/CycloneDDS.xml"
 	]
 }
