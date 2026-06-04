@@ -1,0 +1,13 @@
+#include "/Engine/Private/Common.ush"
+#include "/Engine/Private/RayTracing/RayTracingCommon.ush"
+
+RAY_TRACING_ENTRY_CLOSEST_HIT(Lidar360RayTracingCHS,
+	FDefaultPayload, Payload,
+	FRayTracingIntersectionAttributes, Attributes)
+{
+	Payload.HitT = RayTCurrent();
+	Payload.InstanceIndex = InstanceIndex();
+	Payload.PrimitiveIndex = PrimitiveIndex();
+	Payload.InstanceID = InstanceID();
+	Payload.Barycentrics = Attributes.GetBarycentrics();
+}

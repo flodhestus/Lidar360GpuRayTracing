@@ -1,0 +1,154 @@
+#include "/Engine/Private/Common.ush"
+#include "/Engine/Private/RayTracing/RayTracingCommon.ush"
+#include "/Engine/Shared/RayTracingDefinitions.h"
+
+RaytracingAccelerationStructure TLAS;
+RWStructuredBuffer<float> OutPoints;
+
+float3 LidarRayOrigin;
+float3 LidarForward;
+float3 LidarRight;
+float3 LidarUp;
+float3 PreViewTranslation;
+float AzimuthMinDeg;
+float AzimuthMaxDeg;
+float ElevationMinDeg;
+float ElevationMaxDeg;
+uint NumRings;
+uint PointsPerRing;
+float MinRange;
+float MaxRange;
+float DefaultIntensity;
+float FarNonHitDistance;
+uint bGaussianNoiseEnabled;
+float NoiseMeanM;
+float NoiseStDevBaseM;
+float NoiseStDevRisePerMeter;
+
+static const float DEG_TO_RAD = 0.01745329251994329577;
+static const uint LidarRayFlags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_FORCE_OPAQUE;
+static const uint LidarInstanceMask = RAY_TRACING_MASK_OPAQUE;
+
+float FastRandom(inout uint seed)
+{
+	seed ^= (seed << 13);
+	seed ^= (seed >> 17);
+	seed ^= (seed << 5);
+	return float(seed) / 4294967295.0;
+}
+
+float GaussianSample(inout uint seed)
+{
+	float u1 = max(FastRandom(seed), 1e-6);
+	float u2 = FastRandom(seed);
+	return sqrt(-2.0 * log(u1)) * cos(2.0 * 3.141592653589793 * u2);
+}
+
+float ApplyGaussianDistanceNoiseCm(float distanceCm, uint rayIdx)
+{
+	if (bGaussianNoiseEnabled == 0u)
+	{
+		return distanceCm;
+	}
+	const float distanceM = distanceCm * 0.01;
+	const float totalStDevM = NoiseStDevBaseM + distanceM * NoiseStDevRisePerMeter;
+	uint seed = rayIdx * 1099087573u + 17u;
+	const float errorM = NoiseMeanM + GaussianSample(seed) * totalStDevM;
+	return max(distanceCm + errorM * 100.0, 0.0);
+}
+
+float3 NormalizeSafe(float3 v)
+{
+	float len = length(v);
+	return len > 1e-6f ? (v / len) : v;
+}
+
+float3 TranslatedToWorld(float3 TranslatedPos)
+{
+	return TranslatedPos - PreViewTranslation;
+}
+
+void WriteSlot(uint rayIdx, float3 worldPosCm, float intensity)
+{
+	uint base = rayIdx * 4u;
+	OutPoints[base + 0u] = worldPosCm.x;
+	OutPoints[base + 1u] = worldPosCm.y;
+	OutPoints[base + 2u] = worldPosCm.z;
+	OutPoints[base + 3u] = intensity;
+}
+
+void BuildRay(uint rayIdx, out RayDesc Ray, out uint ring)
+{
+	ring = rayIdx / max(1u, PointsPerRing);
+	uint aziIdx = rayIdx % max(1u, PointsPerRing);
+
+	float azSpan = AzimuthMaxDeg - AzimuthMinDeg;
+	float azDeg = AzimuthMinDeg + azSpan * ((float)aziIdx + 0.5f) / (float)max(1u, PointsPerRing);
+	float elDeg = lerp(ElevationMinDeg, ElevationMaxDeg, (float)ring / (float)max(1u, NumRings - 1u));
+
+	float azRad = azDeg * DEG_TO_RAD;
+	float elRad = elDeg * DEG_TO_RAD;
+	float cosEl = cos(elRad);
+	float sinEl = sin(elRad);
+	float cosAz = cos(azRad);
+	float sinAz = sin(azRad);
+
+	float sx = cosEl * cosAz;
+	float sy = cosEl * sinAz;
+	float sz = sinEl;
+
+	float3 fwd = NormalizeSafe(LidarForward);
+	float3 right = LidarRight - dot(LidarRight, fwd) * fwd;
+	right = NormalizeSafe(right);
+	float3 up = cross(fwd, right);
+	up = NormalizeSafe(up);
+
+	float3 direction = NormalizeSafe(fwd * sx + right * sy + up * sz);
+
+	Ray.Origin = LidarRayOrigin;
+	Ray.Direction = direction;
+	Ray.TMin = MinRange;
+	Ray.TMax = MaxRange;
+}
+
+RAY_TRACING_ENTRY_RAYGEN(Lidar360RayTracingRG)
+{
+	uint rayIdx = DispatchRaysIndex().x;
+	uint totalRays = NumRings * PointsPerRing;
+	if (rayIdx >= totalRays)
+	{
+		return;
+	}
+
+	uint ring = 0u;
+	RayDesc Ray;
+	BuildRay(rayIdx, Ray, ring);
+
+	FDefaultPayload Payload = (FDefaultPayload)0;
+	TraceRay(
+		TLAS,
+		LidarRayFlags,
+		LidarInstanceMask,
+		0,
+		1,
+		0,
+		Ray,
+		Payload);
+
+	if (Payload.IsHit())
+	{
+		const float noisyHitT = ApplyGaussianDistanceNoiseCm(Payload.HitT, rayIdx);
+		const float3 hitTranslated = Ray.Origin + Ray.Direction * noisyHitT;
+		int entityId = (int)Payload.InstanceID;
+		if (entityId == 0)
+		{
+			entityId = (int)Payload.PrimitiveIndex + 1;
+		}
+		WriteSlot(rayIdx, TranslatedToWorld(hitTranslated), DefaultIntensity);
+	}
+	else
+	{
+		const float3 missTranslated = Ray.Origin + Ray.Direction * FarNonHitDistance;
+		WriteSlot(rayIdx, TranslatedToWorld(missTranslated), 0.0f);
+	}
+}

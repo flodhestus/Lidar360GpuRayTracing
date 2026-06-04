@@ -1,0 +1,32 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0.0",
+	"FriendlyName": "LiDAR 360 GPU Ray Tracing",
+	"Description": "360 LiDAR via DX12/Vulkan ray tracing with CycloneDDS ROS2 PointCloud2.",
+	"Category": "Sensors",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"EngineVersion": "5.7.0",
+	"SupportedTargetPlatforms": [ "Win64", "Linux" ],
+	"Modules": [
+		{
+			"Name": "Lidar360Shared",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"PlatformAllowList": [ "Win64" ]
+		},
+		{
+			"Name": "Lidar360GpuRayTracing",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit",
+			"PlatformAllowList": [ "Win64", "Linux" ]
+		}
+	],
+	"AdditionalFilesToPackage": [
+		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracing.usf",
+		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracingHit.usf",
+		"Config/CycloneDDS.xml"
+	]
+}
