@@ -10,13 +10,13 @@
 	"Installed": false,
 	"EngineVersion": "5.7.0",
 	"SupportedTargetPlatforms": [ "Win64", "Linux" ],
-	"Modules": [
+	"Plugins": [
 		{
-			"Name": "Lidar360Shared",
-			"Type": "Runtime",
-			"LoadingPhase": "PreDefault",
-			"PlatformAllowList": [ "Win64" ]
-		},
+			"Name": "Ros2DdsShared",
+			"Enabled": true
+		}
+	],
+	"Modules": [
 		{
 			"Name": "Lidar360GpuRayTracing",
 			"Type": "Runtime",
@@ -26,7 +26,6 @@
 	],
 	"AdditionalFilesToPackage": [
 		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracing.usf",
-		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracingHit.usf",
-		"Config/CycloneDDS.xml"
+		"Shaders/Lidar360GpuRayTracing/Private/Lidar360RayTracingHit.usf"
 	]
 }

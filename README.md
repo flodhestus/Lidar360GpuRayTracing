@@ -4,13 +4,15 @@ Unreal Engine 5.7 plugin that traces a **360° LiDAR** with **hardware ray traci
 
 Repository: [github.com/flodhestus/Lidar360GpuRayTracing](https://github.com/flodhestus/Lidar360GpuRayTracing)
 
-For a **normal scene camera** (not LiDAR), use the separate **[Ros2SceneCamera](https://github.com/flodhestus/Ros2SceneCamera)** plugin.
+Depends on **[Ros2DdsShared](https://github.com/flodhestus/Ros2DdsShared)** for DDS and the point-cloud viewer. Runs alongside **[Ros2SceneCamera](https://github.com/flodhestus/Ros2SceneCamera)** on the same DDS participant.
 
 ## On Play
 
 | Feature | DDS topic | Viewer |
 |--------|-----------|--------|
-| LiDAR point cloud | `rt/sensor_pointcloud` | **LiDAR360 Point Cloud** |
+| LiDAR point cloud (pub + sub) | `rt/sensor_pointcloud` | **LiDAR360 GPU Point Cloud** |
+
+Publisher and subscriber auto-spawn when this plugin is enabled and **OptiX LiDAR is not** (OptiX takes precedence if both are on).
 
 ## GPU techniques
 
@@ -23,13 +25,16 @@ For a **normal scene camera** (not LiDAR), use the separate **[Ros2SceneCamera](
 
 Cost scales with **NumRings × PointsPerRing** per publish and readback size (~16 B per ray). Tune `PublishRateHz` and point budget for PIE. Requires **SM6** and `r.RayTracing=True`.
 
+Pair with the camera plugin for synchronized scene color + LiDAR without a second DDS stack.
+
 ## Quick start
 
-1. Enable **LiDAR 360 GPU Ray Tracing** (Win64).
-2. Press **Play** — point cloud viewer opens when data is on the wire.
-3. Optional: add **`ALidar360PointCloud2Publisher`** to publish GPU traces.
+1. Enable **ROS2 DDS Shared** and **LiDAR 360 GPU Ray Tracing** (Win64).
+2. Optionally enable **ROS2 Scene Camera** for `rt/sensor_image`.
+3. Press **Play** — LiDAR publisher, subscriber, and viewers start automatically.
 
 ## Related
 
+- [Ros2DdsShared](https://github.com/flodhestus/Ros2DdsShared)  
 - [Lidar360OptiX](https://github.com/flodhestus/Lidar360OptiX)  
 - [Ros2SceneCamera](https://github.com/flodhestus/Ros2SceneCamera)  

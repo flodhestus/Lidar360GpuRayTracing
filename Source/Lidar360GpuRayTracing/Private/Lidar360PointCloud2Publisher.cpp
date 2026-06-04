@@ -2,6 +2,7 @@
 #include "Lidar360Dds.h"
 #include "Lidar360PointCloud2Codec.h"
 #include "Lidar360RayTracingInterface.h"
+#include "Ros2SensorCoordinator.h"
 
 #if WITH_LIDAR360_DDS
 THIRD_PARTY_INCLUDES_START
@@ -20,7 +21,7 @@ ALidar360PointCloud2Publisher::ALidar360PointCloud2Publisher()
 void ALidar360PointCloud2Publisher::BeginPlay()
 {
 	Super::BeginPlay();
-	if (!bEnabled || !FLidar360Dds::Init(TEXT("Lidar360GpuRayTracing")))
+	if (!bEnabled || !FRos2SensorCoordinator::EnsureDdsInitialized())
 	{
 		bEnabled = false;
 		return;

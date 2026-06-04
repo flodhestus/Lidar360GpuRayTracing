@@ -1,4 +1,0 @@
-module sensor_msgs { module msg {
-const octet FLOAT32 = 7;
-struct PointField { string name; unsigned long offset; octet datatype; unsigned long count; };
-}; };

@@ -19,7 +19,7 @@ public class Lidar360GpuRayTracing : ModuleRules
 			"RenderCore",
 			"RHI",
 			"Renderer",
-			"Lidar360Shared"
+			"Ros2DdsShared"
 		});
 
 		PrivateDependencyModuleNames.Add("Projects");
