@@ -34,7 +34,7 @@ void ALidar360PointCloud2Subscriber::BeginPlay()
 		return;
 	}
 	Viewport = MakeShared<FLidar360Win32Viewport>();
-	Viewport->StartViewport(TEXT("LiDAR360 Point Cloud"));
+	Viewport->StartViewport(ViewportTitle);
 	GetWorld()->GetTimerManager().SetTimer(PollTimer, this, &ALidar360PointCloud2Subscriber::PollDds, 0.016f, true);
 }
 

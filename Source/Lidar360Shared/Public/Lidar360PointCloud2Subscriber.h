@@ -26,6 +26,9 @@ public:
 	FString PluginName = TEXT("Lidar360GpuRayTracing");
 
 	UPROPERTY(EditAnywhere, Category = "LiDAR360")
+	FString ViewportTitle = TEXT("LiDAR360 Point Cloud");
+
+	UPROPERTY(EditAnywhere, Category = "LiDAR360")
 	float MaxRangeMeters = LIDAR360_MAX_RANGE_M;
 
 protected:

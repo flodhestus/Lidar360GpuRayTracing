@@ -1,13 +1,20 @@
 #include "Lidar360Shared.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Interfaces/IPluginManager.h"
 #include "Lidar360PointCloud2Subscriber.h"
 
 IMPLEMENT_MODULE(FLidar360SharedModule, Lidar360Shared)
 
+static bool IsOptiXPluginEnabled()
+{
+	const TSharedPtr<IPlugin> OptiX = IPluginManager::Get().FindPlugin(TEXT("Lidar360OptiX"));
+	return OptiX.IsValid() && OptiX->IsEnabled();
+}
+
 static void SpawnDefaultSubscriber(UWorld* World)
 {
-	if (!World || World->WorldType != EWorldType::PIE)
+	if (!World || World->WorldType != EWorldType::PIE || IsOptiXPluginEnabled())
 	{
 		return;
 	}

@@ -17,19 +17,6 @@ namespace
 	dds_entity_t GParticipant = 0;
 	dds_entity_t GDomain = 0;
 
-	dds_qos_t* MakeEndpointQos()
-	{
-		dds_qos_t* Qos = dds_create_qos();
-		if (!Qos)
-		{
-			return nullptr;
-		}
-		dds_qset_reliability(Qos, DDS_RELIABILITY_BEST_EFFORT, DDS_INFINITY);
-		const dds_data_representation_id_t Repr[] = { DDS_DATA_REPRESENTATION_XCDR2 };
-		dds_qset_data_representation(Qos, 1, Repr);
-		return Qos;
-	}
-
 	FString ConfigUri(const FString& PluginName)
 	{
 		const TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(FName(*PluginName));
@@ -86,21 +73,18 @@ bool FLidar360Dds::CreateWriter(const FString& TopicName, int32& OutWriter)
 	{
 		return false;
 	}
-	dds_qos_t* Qos = MakeEndpointQos();
 	FTCHARToUTF8 TopicUtf8(*TopicName);
 	dds_entity_t Topic = dds_create_topic(
 		GParticipant,
 		&sensor_msgs_msg_PointCloud2_desc,
 		TopicUtf8.Get(),
-		Qos,
+		nullptr,
 		nullptr);
 	if (Topic < 0)
 	{
-		if (Qos) { dds_delete_qos(Qos); }
 		return false;
 	}
-	dds_entity_t Writer = dds_create_writer(GParticipant, Topic, Qos, nullptr);
-	if (Qos) { dds_delete_qos(Qos); }
+	dds_entity_t Writer = dds_create_writer(GParticipant, Topic, nullptr, nullptr);
 	if (Writer < 0)
 	{
 		dds_delete(Topic);
@@ -120,21 +104,18 @@ bool FLidar360Dds::CreateReader(const FString& TopicName, int32& OutReader)
 	{
 		return false;
 	}
-	dds_qos_t* Qos = MakeEndpointQos();
 	FTCHARToUTF8 TopicUtf8(*TopicName);
 	dds_entity_t Topic = dds_create_topic(
 		GParticipant,
 		&sensor_msgs_msg_PointCloud2_desc,
 		TopicUtf8.Get(),
-		Qos,
+		nullptr,
 		nullptr);
 	if (Topic < 0)
 	{
-		if (Qos) { dds_delete_qos(Qos); }
 		return false;
 	}
-	dds_entity_t Reader = dds_create_reader(GParticipant, Topic, Qos, nullptr);
-	if (Qos) { dds_delete_qos(Qos); }
+	dds_entity_t Reader = dds_create_reader(GParticipant, Topic, nullptr, nullptr);
 	if (Reader < 0)
 	{
 		dds_delete(Topic);
