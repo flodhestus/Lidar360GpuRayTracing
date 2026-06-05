@@ -1,40 +1,39 @@
 # LiDAR 360 GPU Ray Tracing
 
-Unreal Engine 5.7 plugin that traces a **360° LiDAR** with **hardware ray tracing** (DX12 / Vulkan), publishes **`sensor_msgs/PointCloud2`** over **CycloneDDS**, and opens a **live point cloud viewer** when you press **Play**.
+Standalone Unreal Engine 5.7 plugin: **360° LiDAR** using **D3D12 hardware ray tracing** (Unreal `RHI_RAYTRACING` path on **Win64**), **`sensor_msgs/PointCloud2`** over **CycloneDDS**, and a **live point cloud viewer** on **Play**.
 
 Repository: [github.com/flodhestus/Lidar360GpuRayTracing](https://github.com/flodhestus/Lidar360GpuRayTracing)
 
-This plugin also hosts the **`Ros2DdsShared` module** (CycloneDDS, codecs, PIE coordinator). **Lidar360OptiX** and **Ros2SceneCamera** depend on this plugin for shared DDS — there is no fourth plugin.
+**No dependency** on Lidar360OptiX or Ros2SceneCamera. Each plugin is self-contained (own CycloneDDS + IDL). You may enable any combination in the same project; they communicate over DDS topics, not plugin links.
 
 ## On Play
 
-| Feature | DDS topic | Viewer |
-|--------|-----------|--------|
-| LiDAR point cloud (pub + sub) | `rt/sensor_pointcloud` | **LiDAR360 GPU Point Cloud** |
+| Feature | DDS topic (default) | Viewer |
+|--------|------------------------|--------|
+| GPU LiDAR publish + subscribe | `rt/sensor_pointcloud` | **LiDAR360 GPU Point Cloud** |
 
-Publisher and subscriber auto-spawn when this plugin is enabled and **OptiX LiDAR is not** (OptiX takes precedence if both are on).
+If **Lidar360OptiX** is also enabled in the project, this plugin skips GPU LiDAR pub/sub so only one LiDAR backend runs at a time.
 
-## Running with other plugins (same DDS participant)
+## GPU path (Win64)
 
-| Combination | LiDAR | Camera |
-|-------------|-------|--------|
-| This + **Ros2SceneCamera** | GPU RT | `rt/sensor_image` |
-| **Lidar360OptiX** + **Ros2SceneCamera** | OptiX (enable OptiX, disable GPU LiDAR pub or let coordinator pick OptiX) | Image |
-| All three enabled | **OptiX wins** for LiDAR | Image |
+- **Ray generation + closest-hit** HLSL against the engine **TLAS**
+- **FSceneViewExtension** before post-processing
+- **Double-buffered GPU readback** of hit buffers
+- Requires **SM6** and `r.RayTracing=True` (D3D12 RT)
 
-## GPU techniques
+This plugin does **not** implement a separate Vulkan or OptiX LiDAR path.
 
-- **Ray generation + closest-hit** shaders against the engine **TLAS**
-- **FSceneViewExtension** pass before post-processing
-- Double-buffered **GPU readback** of hit buffers
+## Performance
+
+Cost scales with **NumRings × PointsPerRing** and readback size (~16 B per point). Tune `PublishRateHz` and point budget for PIE.
 
 ## Quick start
 
-1. Enable **LiDAR 360 GPU Ray Tracing** (Win64).
-2. Optionally enable **Lidar360OptiX** and/or **Ros2SceneCamera** (they pull in shared DDS automatically).
-3. Press **Play**.
+1. Copy this folder into your project `Plugins/` directory.
+2. Enable **LiDAR 360 GPU Ray Tracing** (Win64).
+3. Press **Play** — publisher, subscriber, and viewer spawn automatically.
 
-## Related
+## Optional companions (separate repos, no plugin dependency)
 
-- [Lidar360OptiX](https://github.com/flodhestus/Lidar360OptiX)  
-- [Ros2SceneCamera](https://github.com/flodhestus/Ros2SceneCamera)  
+- [Lidar360OptiX](https://github.com/flodhestus/Lidar360OptiX) — OptiX LiDAR  
+- [Ros2SceneCamera](https://github.com/flodhestus/Ros2SceneCamera) — scene camera on `rt/sensor_image`  

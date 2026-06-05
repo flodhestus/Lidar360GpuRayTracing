@@ -36,9 +36,7 @@ namespace
 	FString ResolveConfigUri(const FString& PreferredPlugin)
 	{
 		static const TCHAR* Candidates[] = {
-			TEXT("Lidar360GpuRayTracing"),
-			TEXT("Lidar360OptiX"),
-			TEXT("Ros2SceneCamera")
+			TEXT("Lidar360GpuRayTracing")
 		};
 
 		const FString PreferredUri = ConfigUriForPlugin(PreferredPlugin);
