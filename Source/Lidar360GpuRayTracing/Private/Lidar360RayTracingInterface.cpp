@@ -62,10 +62,6 @@ public:
 		SHADER_PARAMETER(float, MaxRange)
 		SHADER_PARAMETER(float, DefaultIntensity)
 		SHADER_PARAMETER(float, FarNonHitDistance)
-		SHADER_PARAMETER(uint32, bGaussianNoiseEnabled)
-		SHADER_PARAMETER(float, NoiseMeanM)
-		SHADER_PARAMETER(float, NoiseStDevBaseM)
-		SHADER_PARAMETER(float, NoiseStDevRisePerMeter)
 	END_SHADER_PARAMETER_STRUCT()
 };
 
@@ -246,10 +242,6 @@ public:
 		ShaderParams->MaxRange = Request.Params.MaxRangeCm;
 		ShaderParams->DefaultIntensity = Request.Params.DefaultIntensity;
 		ShaderParams->FarNonHitDistance = Request.Params.FarNonHitDistanceCm;
-		ShaderParams->bGaussianNoiseEnabled = Request.Params.bGaussianNoiseEnabled ? 1u : 0u;
-		ShaderParams->NoiseMeanM = Request.Params.NoiseMeanM;
-		ShaderParams->NoiseStDevBaseM = Request.Params.NoiseStDevBaseM;
-		ShaderParams->NoiseStDevRisePerMeter = Request.Params.NoiseStDevRisePerMeter;
 
 		FRHIRayTracingScene* RHIRayTracingScene = Scene->RayTracingScene.GetRHIRayTracingScene();
 		if (!RHIRayTracingScene)

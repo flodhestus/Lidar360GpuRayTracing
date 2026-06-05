@@ -21,42 +21,10 @@ float MinRange;
 float MaxRange;
 float DefaultIntensity;
 float FarNonHitDistance;
-uint bGaussianNoiseEnabled;
-float NoiseMeanM;
-float NoiseStDevBaseM;
-float NoiseStDevRisePerMeter;
 
 static const float DEG_TO_RAD = 0.01745329251994329577;
 static const uint LidarRayFlags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_FORCE_OPAQUE;
 static const uint LidarInstanceMask = RAY_TRACING_MASK_OPAQUE;
-
-float FastRandom(inout uint seed)
-{
-	seed ^= (seed << 13);
-	seed ^= (seed >> 17);
-	seed ^= (seed << 5);
-	return float(seed) / 4294967295.0;
-}
-
-float GaussianSample(inout uint seed)
-{
-	float u1 = max(FastRandom(seed), 1e-6);
-	float u2 = FastRandom(seed);
-	return sqrt(-2.0 * log(u1)) * cos(2.0 * 3.141592653589793 * u2);
-}
-
-float ApplyGaussianDistanceNoiseCm(float distanceCm, uint rayIdx)
-{
-	if (bGaussianNoiseEnabled == 0u)
-	{
-		return distanceCm;
-	}
-	const float distanceM = distanceCm * 0.01;
-	const float totalStDevM = NoiseStDevBaseM + distanceM * NoiseStDevRisePerMeter;
-	uint seed = rayIdx * 1099087573u + 17u;
-	const float errorM = NoiseMeanM + GaussianSample(seed) * totalStDevM;
-	return max(distanceCm + errorM * 100.0, 0.0);
-}
 
 float3 NormalizeSafe(float3 v)
 {
@@ -147,13 +115,7 @@ RAY_TRACING_ENTRY_RAYGEN(Lidar360RayTracingRG)
 
 	if (Payload.IsHit())
 	{
-		const float noisyHitT = ApplyGaussianDistanceNoiseCm(Payload.HitT, rayIdx);
-		const float3 hitTranslated = Ray.Origin + Ray.Direction * noisyHitT;
-		int entityId = (int)Payload.InstanceID;
-		if (entityId == 0)
-		{
-			entityId = (int)Payload.PrimitiveIndex + 1;
-		}
+		const float3 hitTranslated = Ray.Origin + Ray.Direction * Payload.HitT;
 		WriteSlot(rayIdx, TranslatedToWorld(hitTranslated), DefaultIntensity);
 	}
 	else

@@ -1,39 +1,76 @@
 # LiDAR 360 GPU Ray Tracing
 
-Standalone Unreal Engine 5.7 plugin: **360° LiDAR** using **D3D12 hardware ray tracing** (Unreal `RHI_RAYTRACING` path on **Win64**), **`sensor_msgs/PointCloud2`** over **CycloneDDS**, and a **live point cloud viewer** on **Play**.
+Win64 UE 5.7 plugin: 360° LiDAR with **D3D12 hardware ray tracing**, CycloneDDS `sensor_msgs/PointCloud2`, and a live viewer on Play.
 
-Repository: [github.com/flodhestus/Lidar360GpuRayTracing](https://github.com/flodhestus/Lidar360GpuRayTracing) · GitHub [@flodhestus](https://github.com/flodhestus)
+Repo: [github.com/flodhestus/Lidar360GpuRayTracing](https://github.com/flodhestus/Lidar360GpuRayTracing)
 
-**No dependency** on other plugins. Includes integrated **`Source/Ros2DdsShared`** (CycloneDDS, codecs, coordinator) plus GPU LiDAR. You may enable any combination in the same project; they communicate over DDS topics.
+## What it does
 
-## On Play
+On Play, spawns a publisher and subscriber on `rt/sensor_pointcloud` and opens **LiDAR360 GPU Point Cloud**.
 
-| Feature | DDS topic (default) | Viewer |
-|--------|------------------------|--------|
-| GPU LiDAR publish + subscribe | `rt/sensor_pointcloud` | **LiDAR360 GPU Point Cloud** |
+If **Lidar360OptiX** is also enabled, this plugin stays off LiDAR so only one backend runs.
 
-If **Lidar360OptiX** is also enabled in the project, this plugin skips GPU LiDAR pub/sub so only one LiDAR backend runs at a time.
+## Requirements
 
-## GPU path (Win64)
+| Item | Value |
+|------|--------|
+| Platform | Win64 |
+| UE | 5.7 |
+| GPU | RT-capable (SM6) |
+| Project settings | `r.RayTracing=True`, D3D12 |
 
-- **Ray generation + closest-hit** HLSL against the engine **TLAS**
-- **FSceneViewExtension** before post-processing
-- **Double-buffered GPU readback** of hit buffers
-- Requires **SM6** and `r.RayTracing=True` (D3D12 RT)
+No CUDA or OptiX required.
 
-This plugin does **not** implement a separate Vulkan or OptiX LiDAR path.
+## GPU pipeline
+
+```
+Timer
+  → Ray-gen HLSL traces engine TLAS (view extension, before post-process)
+  → Closest-hit writes hit distance
+  → Ray-gen packs sensor-frame x/y/z/intensity on GPU
+  → One GPU readback copy into DDS sample buffer
+  → dds_write (async)
+```
+
+Each point is **16 bytes** (4 floats). Rays use the same scan pattern as OptiX: rings × points per ring over azimuth/elevation.
 
 ## Performance
 
-Cost scales with **NumRings × PointsPerRing** and readback size (~16 B per point). Tune `PublishRateHz` and point budget for PIE.
+Total rays per frame:
+
+```
+rays = NumRings × PointsPerRing
+PointsPerRing = PointsPerSecond ÷ NumRings ÷ PublishRateHz
+```
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| `NumRings` | 128 | Vertical resolution |
+| `PointsPerSecond` | 576000 | Horizontal density |
+| `PublishRateHz` | 20 | Scan rate |
+| `MaxRangeMeters` | 200 | Ray length |
+
+**Rough cost per frame**
+
+| Rays | Readback size | Notes |
+|------|---------------|--------|
+| ~225k | ~3.6 MB | Default at 20 Hz |
+| ~576k | ~9.2 MB | Max default budget |
+| 700k | ~11.2 MB | Codec buffer cap |
+
+Tips for smooth PIE:
+
+- Lower `PublishRateHz` first (10–15 Hz is often enough for debug).
+- Reduce `PointsPerSecond` before `NumRings` if you need less horizontal detail.
+- Keep `MaxFramesInFlight` at 2 (built-in) — do not raise publish rate above what readback can finish.
 
 ## Quick start
 
-1. Copy this folder into your project `Plugins/` directory.
-2. Enable **LiDAR 360 GPU Ray Tracing** (Win64).
-3. Press **Play** — publisher, subscriber, and viewer spawn automatically.
+1. Copy into `YourProject/Plugins/`.
+2. Enable **LiDAR 360 GPU Ray Tracing**.
+3. Press Play.
 
-## Optional companions (separate repos, no plugin dependency)
+## Related plugins
 
-- [Lidar360OptiX](https://github.com/flodhestus/Lidar360OptiX) — OptiX LiDAR  
-- [Ros2SceneCamera](https://github.com/flodhestus/Ros2SceneCamera) — scene camera on `rt/sensor_image`  
+- [Lidar360OptiX](https://github.com/flodhestus/Lidar360OptiX) — NVIDIA OptiX LiDAR  
+- [Ros2SceneCamera](https://github.com/flodhestus/Ros2SceneCamera) — RGB camera on `rt/sensor_image`  

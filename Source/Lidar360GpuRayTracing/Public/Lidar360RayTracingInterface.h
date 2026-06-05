@@ -19,10 +19,6 @@ struct FLidar360RayTracingDispatchParams
 	float MaxRangeCm = LIDAR360_MAX_RANGE_CM;
 	float DefaultIntensity = 1.f;
 	float FarNonHitDistanceCm = LIDAR360_MAX_RANGE_CM;
-	bool bGaussianNoiseEnabled = true;
-	float NoiseMeanM = 0.f;
-	float NoiseStDevBaseM = 0.02f;
-	float NoiseStDevRisePerMeter = 0.002f;
 };
 
 class LIDAR360GPURAYTRACING_API FLidar360RayTracingInterface
