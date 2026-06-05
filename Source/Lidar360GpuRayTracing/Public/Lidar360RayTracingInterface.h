@@ -33,5 +33,7 @@ public:
 	static void RequestFrame(
 		UWorld* World,
 		const FLidar360RayTracingDispatchParams& Params,
-		TFunction<void(bool bSuccess, TArray<uint8>&& RawPoints, int32 SlotCount)> Callback);
+		uint8* DestBuffer,
+		int32 DestCapacityBytes,
+		TFunction<void(bool bSuccess, int32 SlotCount)> Callback);
 };

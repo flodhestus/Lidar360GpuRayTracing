@@ -75,11 +75,6 @@ void ALidar360PointCloud2Publisher::ProcessFrame()
 {
 	const int32 PointsPerRing = FMath::Max(1, PointsPerSecond / FMath::Max(1, NumRings) / FMath::Max(1, FMath::RoundToInt(PublishRateHz)));
 	const int32 TotalRays = NumRings * PointsPerRing;
-	const int32 Bytes = TotalRays * LIDAR360_GPU_STRIDE;
-	if (GpuScratch.Num() < Bytes)
-	{
-		GpuScratch.SetNumUninitialized(Bytes);
-	}
 
 	FLidar360RayTracingDispatchParams Params;
 	Params.LidarOrigin = GetActorLocation();
@@ -92,10 +87,20 @@ void ALidar360PointCloud2Publisher::ProcessFrame()
 	Params.FarNonHitDistanceCm = Params.MaxRangeCm;
 	Params.DefaultIntensity = DefaultIntensity;
 
+	auto* Sample = static_cast<sensor_msgs_msg_PointCloud2*>(DdsSample);
+	if (!Sample || !Sample->data._buffer || DdsWriter <= 0)
+	{
+		return;
+	}
+
 	FramesInFlight.fetch_add(1, std::memory_order_relaxed);
 	TWeakObjectPtr<ALidar360PointCloud2Publisher> WeakThis(this);
-	FLidar360RayTracingInterface::RequestFrame(GetWorld(), Params,
-		[WeakThis, Params](bool bOk, TArray<uint8>&& Raw, int32 Slots)
+	FLidar360RayTracingInterface::RequestFrame(
+		GetWorld(),
+		Params,
+		Sample->data._buffer,
+		static_cast<int32>(Sample->data._maximum),
+		[WeakThis](bool bOk, int32 Slots)
 		{
 			ALidar360PointCloud2Publisher* Self = WeakThis.Get();
 			if (!Self)
@@ -104,19 +109,11 @@ void ALidar360PointCloud2Publisher::ProcessFrame()
 			}
 			if (bOk && Self->DdsSample && Self->DdsWriter > 0)
 			{
-				auto* Sample = static_cast<sensor_msgs_msg_PointCloud2*>(Self->DdsSample);
-				const int32 N = FLidar360PointCloud2Codec::PackFromGpuHits(
-					*Sample,
-					Raw.GetData(),
-					Slots,
-					Params.LidarOrigin,
-					Params.LidarForward,
-					Params.LidarRight,
-					Params.LidarUp,
-					Self->FrameId);
+				auto* Msg = static_cast<sensor_msgs_msg_PointCloud2*>(Self->DdsSample);
+				const int32 N = FLidar360PointCloud2Codec::CommitSensorFrame(*Msg, Slots, Self->FrameId);
 				if (N > 0)
 				{
-					FLidar360Dds::PublishAsync(Self->DdsWriter, Sample);
+					FLidar360Dds::PublishAsync(Self->DdsWriter, Msg);
 				}
 			}
 			Self->FramesInFlight.fetch_sub(1, std::memory_order_relaxed);

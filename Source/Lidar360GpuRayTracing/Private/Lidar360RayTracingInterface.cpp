@@ -47,6 +47,7 @@ public:
 		SHADER_PARAMETER_RDG_BUFFER_SRV(RaytracingAccelerationStructure, TLAS)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWStructuredBuffer<float>, OutPoints)
 		SHADER_PARAMETER(FVector3f, LidarRayOrigin)
+		SHADER_PARAMETER(FVector3f, LidarOriginWorldCm)
 		SHADER_PARAMETER(FVector3f, PreViewTranslation)
 		SHADER_PARAMETER(FVector3f, LidarForward)
 		SHADER_PARAMETER(FVector3f, LidarRight)
@@ -102,7 +103,9 @@ IMPLEMENT_SHADER_TYPE(, FLidar360CHS, TEXT("/Lidar360GpuRayTracingShaders/Lidar3
 struct FLidar360FrameRequest
 {
 	FLidar360RayTracingDispatchParams Params;
-	TFunction<void(bool, TArray<uint8>&&, int32)> Callback;
+	TFunction<void(bool, int32)> Callback;
+	uint8* DestBuffer = nullptr;
+	int32 DestCapacityBytes = 0;
 };
 
 static bool Native360CanUsePipelineRayTracing()
@@ -177,7 +180,7 @@ public:
 
 		if (!InView.bIsViewInfo)
 		{
-			FinishRequest(false, {}, 0, MoveTemp(Request.Callback));
+			FinishRequest(false, 0, MoveTemp(Request.Callback));
 			return;
 		}
 
@@ -186,21 +189,21 @@ public:
 
 		if (!View.Family || !View.Family->Scene || !Native360CanUsePipelineRayTracing())
 		{
-			FinishRequest(false, {}, 0, MoveTemp(Request.Callback));
+			FinishRequest(false, 0, MoveTemp(Request.Callback));
 			return;
 		}
 
 		const FScene* Scene = View.Family->Scene->GetRenderScene();
 		if (!Scene || !Scene->RayTracingScene.IsCreated())
 		{
-			FinishRequest(false, {}, 0, MoveTemp(Request.Callback));
+			FinishRequest(false, 0, MoveTemp(Request.Callback));
 			return;
 		}
 
 		FRDGBufferSRVRef TLAS = Scene->RayTracingScene.GetLayerView(ERayTracingSceneLayer::Base);
 		if (!TLAS)
 		{
-			FinishRequest(false, {}, 0, MoveTemp(Request.Callback));
+			FinishRequest(false, 0, MoveTemp(Request.Callback));
 			return;
 		}
 
@@ -210,7 +213,7 @@ public:
 		if (!RayGenShader.IsValid() || !ClosestHitShader.IsValid() || !MissShader.IsValid())
 		{
 			UE_LOG(LogLidar360, Error, TEXT("Native360: pipeline RT shaders missing (PCD3D_SM6, r.RayTracing=True, r.RayTracing.AllowPipeline=1)"));
-			FinishRequest(false, {}, 0, MoveTemp(Request.Callback));
+			FinishRequest(false, 0, MoveTemp(Request.Callback));
 			return;
 		}
 
@@ -228,6 +231,7 @@ public:
 		ShaderParams->TLAS = TLAS;
 		ShaderParams->OutPoints = GraphBuilder.CreateUAV(OutputBuffer);
 		ShaderParams->LidarRayOrigin = FVector3f(Request.Params.LidarOrigin + PreViewTranslation);
+		ShaderParams->LidarOriginWorldCm = FVector3f(Request.Params.LidarOrigin);
 		ShaderParams->PreViewTranslation = FVector3f(PreViewTranslation);
 		ShaderParams->LidarForward = FVector3f(Request.Params.LidarForward.GetSafeNormal());
 		ShaderParams->LidarRight = FVector3f(Request.Params.LidarRight.GetSafeNormal());
@@ -250,7 +254,7 @@ public:
 		FRHIRayTracingScene* RHIRayTracingScene = Scene->RayTracingScene.GetRHIRayTracingScene();
 		if (!RHIRayTracingScene)
 		{
-			FinishRequest(false, {}, 0, MoveTemp(Request.Callback));
+			FinishRequest(false, 0, MoveTemp(Request.Callback));
 			return;
 		}
 
@@ -276,11 +280,13 @@ public:
 		FRHIGPUBufferReadback* Readback = GpuReadbacks[ReadbackIdx];
 		AddEnqueueCopyPass(GraphBuilder, Readback, OutputBuffer, 0u);
 
-		TFunction<void(bool, TArray<uint8>&&, int32)> Callback = MoveTemp(Request.Callback);
+		uint8* DestBuffer = Request.DestBuffer;
+		const int32 DestCapacityBytes = Request.DestCapacityBytes;
+		TFunction<void(bool, int32)> Callback = MoveTemp(Request.Callback);
 		GraphBuilder.AddPass(
 			RDG_EVENT_NAME("Lidar360Readback"),
 			ERDGPassFlags::NeverCull,
-			[Readback, OutputBytes, TotalRays, Callback = MoveTemp(Callback)](FRHICommandListImmediate& RHICmdList) mutable
+			[Readback, OutputBytes, TotalRays, DestBuffer, DestCapacityBytes, Callback = MoveTemp(Callback)](FRHICommandListImmediate& RHICmdList) mutable
 			{
 				RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 				const double Deadline = FPlatformTime::Seconds() + 2.0;
@@ -288,38 +294,42 @@ public:
 				{
 					FPlatformProcess::SleepNoStats(0.0005f);
 				}
-				if (!Readback->IsReady())
+				if (!Readback->IsReady() || !DestBuffer || static_cast<int32>(OutputBytes) > DestCapacityBytes)
 				{
-					FinishRequest(false, {}, 0, MoveTemp(Callback));
+					FinishRequest(false, 0, MoveTemp(Callback));
 					return;
 				}
-				TArray<uint8> Raw;
-				Raw.SetNumUninitialized(OutputBytes);
 				void* Data = Readback->Lock(OutputBytes);
 				if (Data)
 				{
-					FMemory::Memcpy(Raw.GetData(), Data, OutputBytes);
+					FMemory::Memcpy(DestBuffer, Data, OutputBytes);
 					Readback->Unlock();
 				}
-				FinishRequest(true, MoveTemp(Raw), TotalRays, MoveTemp(Callback));
+				FinishRequest(true, TotalRays, MoveTemp(Callback));
 			});
 	}
 
-	void SubmitRequest(const FLidar360RayTracingDispatchParams& Params, TFunction<void(bool, TArray<uint8>&&, int32)> Callback)
+	void SubmitRequest(
+		const FLidar360RayTracingDispatchParams& Params,
+		uint8* DestBuffer,
+		int32 DestCapacityBytes,
+		TFunction<void(bool, int32)> Callback)
 	{
 		FScopeLock Lock(&PendingLock);
 		FLidar360FrameRequest Request;
 		Request.Params = Params;
+		Request.DestBuffer = DestBuffer;
+		Request.DestCapacityBytes = DestCapacityBytes;
 		Request.Callback = MoveTemp(Callback);
 		PendingRequest = MoveTemp(Request);
 	}
 
 private:
-	static void FinishRequest(bool bSuccess, TArray<uint8>&& Raw, int32 SlotCount, TFunction<void(bool, TArray<uint8>&&, int32)> Callback)
+	static void FinishRequest(bool bSuccess, int32 SlotCount, TFunction<void(bool, int32)> Callback)
 	{
-		AsyncTask(ENamedThreads::GameThread, [Callback = MoveTemp(Callback), bSuccess, Raw = MoveTemp(Raw), SlotCount]() mutable
+		AsyncTask(ENamedThreads::GameThread, [Callback = MoveTemp(Callback), bSuccess, SlotCount]()
 		{
-			Callback(bSuccess, MoveTemp(Raw), SlotCount);
+			Callback(bSuccess, SlotCount);
 		});
 	}
 
@@ -332,54 +342,7 @@ private:
 static FCriticalSection GNative360ExtensionLock;
 static TMap<TWeakObjectPtr<UWorld>, TSharedPtr<FLidar360ViewExtension>> GNative360Extensions;
 
-#if RHI_RAYTRACING
-static FDelegateHandle GAnyRayTracingPassEnabledHandle;
-
-static bool Native360HasRegisteredWorld()
-{
-	FScopeLock Lock(&GNative360ExtensionLock);
-	for (auto It = GNative360Extensions.CreateIterator(); It; ++It)
-	{
-		if (It.Key().IsValid())
-		{
-			return true;
-		}
-		It.RemoveCurrent();
-	}
-	return false;
-}
-
-static void OnAnyRayTracingPassEnabled(bool& bAnyRayTracingPassEnabled)
-{
-	if (Native360HasRegisteredWorld())
-	{
-		bAnyRayTracingPassEnabled = true;
-	}
-}
-#endif
-
-void FLidar360Interface::RegisterGlobalIlluminationRayTracingDelegates()
-{
-#if RHI_RAYTRACING
-	if (!GAnyRayTracingPassEnabledHandle.IsValid())
-	{
-		GAnyRayTracingPassEnabledHandle = FGlobalIlluminationPluginDelegates::AnyRayTracingPassEnabled().AddStatic(&OnAnyRayTracingPassEnabled);
-	}
-#endif
-}
-
-void FLidar360Interface::UnregisterGlobalIlluminationRayTracingDelegates()
-{
-#if RHI_RAYTRACING
-	if (GAnyRayTracingPassEnabledHandle.IsValid())
-	{
-		FGlobalIlluminationPluginDelegates::AnyRayTracingPassEnabled().Remove(GAnyRayTracingPassEnabledHandle);
-		GAnyRayTracingPassEnabledHandle.Reset();
-	}
-#endif
-}
-
-void FLidar360Interface::RegisterWorld(UWorld* World)
+void FLidar360RayTracingInterface::RegisterWorld(UWorld* World)
 {
 	if (!World)
 	{
@@ -394,7 +357,7 @@ void FLidar360Interface::RegisterWorld(UWorld* World)
 	GNative360Extensions.Add(World, Extension);
 }
 
-void FLidar360Interface::UnregisterWorld(UWorld* World)
+void FLidar360RayTracingInterface::UnregisterWorld(UWorld* World)
 {
 	if (!World)
 	{
@@ -404,14 +367,16 @@ void FLidar360Interface::UnregisterWorld(UWorld* World)
 	GNative360Extensions.Remove(World);
 }
 
-void FLidar360Interface::RequestFrame(
+void FLidar360RayTracingInterface::RequestFrame(
 	UWorld* World,
 	const FLidar360RayTracingDispatchParams& Params,
-	TFunction<void(bool bSuccess, TArray<uint8>&& RawPoints, int32 SlotCount)> Callback)
+	uint8* DestBuffer,
+	int32 DestCapacityBytes,
+	TFunction<void(bool bSuccess, int32 SlotCount)> Callback)
 {
-	if (!World)
+	if (!World || !DestBuffer || DestCapacityBytes <= 0)
 	{
-		Callback(false, {}, 0);
+		Callback(false, 0);
 		return;
 	}
 	TSharedPtr<FLidar360ViewExtension> Extension;
@@ -425,8 +390,8 @@ void FLidar360Interface::RequestFrame(
 	if (!Extension.IsValid())
 	{
 		UE_LOG(LogLidar360, Warning, TEXT("Native360: no view extension for world"));
-		Callback(false, {}, 0);
+		Callback(false, 0);
 		return;
 	}
-	Extension->SubmitRequest(Params, MoveTemp(Callback));
+	Extension->SubmitRequest(Params, DestBuffer, DestCapacityBytes, MoveTemp(Callback));
 }

@@ -47,7 +47,6 @@ protected:
 
 	FTimerHandle TimerHandle;
 	int32 DdsWriter = 0;
-	TArray<uint8> GpuScratch;
 	void* DdsSample = nullptr;
 	std::atomic<int32> FramesInFlight{0};
 	static constexpr int32 MaxFramesInFlight = 2;

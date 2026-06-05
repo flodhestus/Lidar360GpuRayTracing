@@ -6,6 +6,7 @@ RaytracingAccelerationStructure TLAS;
 RWStructuredBuffer<float> OutPoints;
 
 float3 LidarRayOrigin;
+float3 LidarOriginWorldCm;
 float3 LidarForward;
 float3 LidarRight;
 float3 LidarUp;
@@ -70,10 +71,19 @@ float3 TranslatedToWorld(float3 TranslatedPos)
 
 void WriteSlot(uint rayIdx, float3 worldPosCm, float intensity)
 {
+	float3 rel = worldPosCm - LidarOriginWorldCm;
+	float3 fwd = NormalizeSafe(LidarForward);
+	float3 right = LidarRight - dot(LidarRight, fwd) * fwd;
+	right = NormalizeSafe(right);
+	float3 up = cross(fwd, right);
+	up = NormalizeSafe(up);
+	const float xm = dot(rel, fwd) * 0.01;
+	const float ym = dot(rel, right) * 0.01;
+	const float zm = dot(rel, up) * 0.01;
 	uint base = rayIdx * 4u;
-	OutPoints[base + 0u] = worldPosCm.x;
-	OutPoints[base + 1u] = worldPosCm.y;
-	OutPoints[base + 2u] = worldPosCm.z;
+	OutPoints[base + 0u] = xm;
+	OutPoints[base + 1u] = ym;
+	OutPoints[base + 2u] = zm;
 	OutPoints[base + 3u] = intensity;
 }
 
