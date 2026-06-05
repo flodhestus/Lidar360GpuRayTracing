@@ -4,7 +4,7 @@ Standalone Unreal Engine 5.7 plugin: **360° LiDAR** using **D3D12 hardware ray 
 
 Repository: [github.com/flodhestus/Lidar360GpuRayTracing](https://github.com/flodhestus/Lidar360GpuRayTracing) · GitHub [@flodhestus](https://github.com/flodhestus)
 
-**No dependency** on Lidar360OptiX or Ros2SceneCamera. Each plugin is self-contained (own CycloneDDS + IDL). You may enable any combination in the same project; they communicate over DDS topics, not plugin links.
+**No dependency** on other plugins. Includes integrated **`Source/Ros2DdsShared`** (CycloneDDS, codecs, coordinator) plus GPU LiDAR. You may enable any combination in the same project; they communicate over DDS topics.
 
 ## On Play
 

@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0.0",
 	"FriendlyName": "LiDAR 360 GPU Ray Tracing",
-	"Description": "Standalone 360 LiDAR via D3D12 hardware ray tracing, CycloneDDS PointCloud2, and live point cloud viewer on Play.",
+	"Description": "Standalone 360 LiDAR via D3D12 hardware ray tracing with integrated Ros2DdsShared (CycloneDDS PointCloud2) and live point cloud viewer on Play.",
 	"Category": "Sensors",
 	"CanContainContent": true,
 	"IsBetaVersion": false,
