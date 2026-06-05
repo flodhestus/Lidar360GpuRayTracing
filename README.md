@@ -2,7 +2,7 @@
 
 Standalone Unreal Engine 5.7 plugin: **360° LiDAR** using **D3D12 hardware ray tracing** (Unreal `RHI_RAYTRACING` path on **Win64**), **`sensor_msgs/PointCloud2`** over **CycloneDDS**, and a **live point cloud viewer** on **Play**.
 
-Repository: [github.com/flodhestus/Lidar360GpuRayTracing](https://github.com/flodhestus/Lidar360GpuRayTracing)
+Repository: [github.com/flodhestus/Lidar360GpuRayTracing](https://github.com/flodhestus/Lidar360GpuRayTracing) · GitHub [@flodhestus](https://github.com/flodhestus)
 
 **No dependency** on Lidar360OptiX or Ros2SceneCamera. Each plugin is self-contained (own CycloneDDS + IDL). You may enable any combination in the same project; they communicate over DDS topics, not plugin links.
 
