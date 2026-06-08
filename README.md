@@ -56,9 +56,4 @@ PointsPerRing = PointsPerSecond ÷ NumRings ÷ PublishRateHz
 
 1. Copy into `YourProject/Plugins/`.
 2. Enable **LiDAR 360 GPU Ray Tracing**.
-3. Press Play.
-
-## Related plugins
-
-- [Lidar360OptiX](https://github.com/flodhestus/Lidar360OptiX) — NVIDIA OptiX LiDAR  
-- [Ros2SceneCamera](https://github.com/flodhestus/Ros2SceneCamera) — RGB camera on `rt/sensor_image`  
+3. Press play
