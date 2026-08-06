@@ -56,4 +56,3 @@ PointsPerRing = PointsPerSecond ÷ NumRings ÷ PublishRateHz
 
 1. Copy into `YourProject/Plugins/`.
 2. Enable **LiDAR 360 GPU Ray Tracing**.
-3. Press play
